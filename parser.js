@@ -1,23 +1,3 @@
-function getPageLanguage() {
-    return document.documentElement.lang.trim();
-}
-
-function getPageCharset() {
-    return document.head.querySelector('meta[charset]').getAttribute('charset').trim();
-}
-
-function getPageTitle() {
-    return document.head.querySelector('title').textContent.split('—')[0].trim();
-}
-
-function getPageKeywords() {
-    return document.head.querySelector('meta[name="keywords"]').content.split(', ');
-}
-
-function getPageDescription() {
-    return document.head.querySelector('meta[name="description"]').content.trim();
-}
-
 function getPageOpengraph() {
     let ogs = {};
     ogTags = document.head.querySelectorAll('meta[property^="og"]');
@@ -27,12 +7,69 @@ function getPageOpengraph() {
     return ogs;
 }
 
-function getProduct() {
-    return document.body.querySelector('.product');
+function getProductPrice(product) {
+    let productPrice = {}
+    let priceElement = product.querySelector('.price');
+    let priceClone = priceElement.cloneNode(true);
+    
+    priceClone.removeChild(priceClone.children[0]);
+    
+    productPrice.price = priceClone.textContent.replace(/[^0-9]/g, '');
+    productPrice.oldPrice = priceElement.children[0].textContent.trim().replace(/[^0-9]/g, '');
+    productPrice.discount = productPrice.oldPrice - productPrice.price;
+    let discountPercent = productPrice.discount / productPrice.oldPrice * 100;
+    productPrice.discountPercent = `${discountPercent.toFixed(2)}%`;
+
+    let currencySign = priceElement.children[0].textContent.trim().replace(/[0-9]/g, '');
+    switch (currencySign) {
+        case '₽':
+            productPrice.currency = 'RUB';
+            break;
+        case '$':
+            productPrice.currency = 'USD';
+            break;
+        case '€':
+            productPrice.currency = 'EUR';
+            break;
+    }
+
+    return productPrice
 }
 
-function getProductID() {
-    return getProduct().dataset['id'];
+function getProductTags(product) {
+    let tags = {
+        category: [],
+        discount: [],
+        label: [],
+    }
+    Array.from(product.querySelector('.tags').children).forEach(tag => {
+        if (tag.classList.contains('green')) {
+            tags.category.push(tag.textContent.trim());
+        } else if (tag.classList.contains('red')) {
+            tags.discount.push(tag.textContent.trim());
+        } else if (tag.classList.contains('blue')) {
+            tags.label.push(tag.textContent.trim())
+        }
+    });
+
+    return tags;
+}
+
+function getProductProperties(product) {
+    let props = {}
+    Array.from(product.querySelector('.properties').children).forEach(prop => {
+        props[prop.children[0].textContent.trim()] = prop.children[1].textContent.trim();
+    })
+    return props;
+}
+
+function getProductDescription(product) {
+    let productDescription = product.querySelector('.description')
+    let descClone = productDescription.cloneNode(true);
+    Array.from(descClone.children).forEach(child => {
+        child.removeAttribute('class');
+    });
+    return descClone.innerHTML.trim();
 }
 
 function getImageInfo(image) {
@@ -45,10 +82,9 @@ function getImageInfo(image) {
     return info;
 }
 
-function getProductImages() {
+function getProductImages(product) {
     let productImages = [];
     
-    product = getProduct();
     images = product.querySelectorAll('img');
     previewSrc = product.querySelector('img[alt="preview"]').src;
     
@@ -64,94 +100,45 @@ function getProductImages() {
     return productImages;
 }
 
-function getProductLike() {
-    return getProduct().querySelector('.like').classList.contains('active');
-}
-
-function getProductName() {
-    return document.querySelector('h1').textContent.trim();
-}
-
-function getProductTags() {
-    let tags = {
-        category: [],
-        discount: [],
-        label: [],
-    }
-    Array.from(getProduct().querySelector('.tags').children).forEach(tag => {
-        if (tag.classList.contains('green')) {
-            tags.category.push(tag.textContent.trim());
-        } else if (tag.classList.contains('red')) {
-            tags.discount.push(tag.textContent.trim());
-        } else if (tag.classList.contains('blue')) {
-            tags.label.push(tag.textContent.trim())
-        }
-    });
-
-    return tags;
-}
-
-function getProductFullPrice() {
-    return document.querySelector('.price').children[0].textContent.trim().replace(/[^0-9]/g, '');
-}
-
-function getProductDiscountPrice() {
-    let priceElement = document.querySelector('.price');
-    let priceClone = priceElement.cloneNode(true);
-    priceClone.removeChild(priceClone.children[0]);
-    return priceClone.textContent.replace(/[^0-9]/g, '');
-}
-
-function getProductDiscountSize() {
-    return getProductFullPrice() - getProductDiscountPrice();
-}
-
-function getProductDiscountPercentage() {
-    return getProductDiscountSize() / getProductFullPrice() * 100;
-}
-
-function getProductCurrency() {
-    let currencySign = document.querySelector('.price').children[0].textContent.trim().replace(/[0-9]/g, '');
-    switch (currencySign) {
-        case '₽':
-            return 'RUB';
-        case '$':
-            return 'USD';
-        case '€':
-            return 'EUR';
-    }
-}
-
-function getProductProperties() {
-    let props = {}
-    Array.from(document.querySelector('.properties').children).forEach(prop => {
-        props[prop.children[0].textContent.trim()] = prop.children[1].textContent.trim();
-    })
-    return props;
-}
-
-function getProductDescription() {
-    return document.querySelector('.description').innerHTML.trim();
-}
-
-function collectPageMeta() {
-    let pageMeta = {}
+function collectPageMeta () {
+    let pageMeta = {};
     
-    pageMeta.title = getPageTitle();
-    pageMeta.description = getPageDescription();
-    pageMeta.keywords = getPageKeywords();
-    pageMeta.language = getPageLanguage();
-    pageMeta.charset = getPageCharset();
+    pageMeta.language = document.documentElement.lang.trim();
+    // pageMeta.charset = document.head.querySelector('meta[charset]').getAttribute('charset').trim();
+    pageMeta.title = document.head.querySelector('title').textContent.split('—')[0].trim();
+    pageMeta.keywords = document.head.querySelector('meta[name="keywords"]').content.split(', ');
     pageMeta.opengraph = getPageOpengraph();
-    
+    pageMeta.description = document.head.querySelector('meta[name="description"]').content.trim();
+    pageMeta.opengraph.title = pageMeta.title;
+
     return pageMeta;
 }
 
+function collectProductInfo() {
+    let product = {};
+    let productNode = document.body.querySelector('.product');
+    let priceInfo = getProductPrice(productNode);
+
+    product.id = productNode.dataset['id'];
+    product.name = document.querySelector('h1').textContent.trim();
+    product.isLiked = productNode.querySelector('.like').classList.contains('active');
+    product.price = +priceInfo.price;
+    product.oldPrice = +priceInfo.oldPrice;
+    product.discount = priceInfo.discount;
+    product.discountPercent = priceInfo.discountPercent;
+    product.currency = priceInfo.currency
+    product.tags = getProductTags(productNode);
+    product.properties = getProductProperties(productNode);
+    product.description = getProductDescription(productNode);
+    product.images = getProductImages(productNode);
+
+    return product;
+}
+
 function parsePage() {
-    console.log(getProductDescription());
     return {
-        meta: {},
-        product: {},
+        meta: collectPageMeta(),
+        product: collectProductInfo(),
         suggested: [],
         reviews: []
     };
