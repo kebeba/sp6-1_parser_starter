@@ -1,3 +1,65 @@
+function getPriceValue(text) {
+    return text.replace(/[^0-9]/g, '');
+}
+
+function getPriceCurrency(text) {
+    let currencySign = text.replace(/[0-9]/g, '');
+    switch (currencySign) {
+        case '₽':
+            return 'RUB';
+        case '$':
+            return 'USD';
+        case '€':
+            return 'EUR';
+    }
+}
+
+function getImageInfo(image) {
+    let info = {};
+    
+    info.preview = image.src;
+    info.full = image.dataset['src'];
+    info.alt = image.alt;
+    
+    return info;
+}
+
+function getSuggestedItemInfo(itemNode) {
+    let item = {};
+    const itemPrice = itemNode.querySelector('b').textContent.trim();
+    
+    item.image = itemNode.querySelector('img').src;
+    item.name = itemNode.querySelector('h3').textContent.trim();
+    item.description = itemNode.querySelector('p').textContent.trim();
+    item.currency = getPriceCurrency(itemPrice);
+    item.price = getPriceValue(itemPrice);
+    
+    return item;
+}
+
+function getReviewContent(reviewNode) {
+    let review = {};
+
+    review.rating = 0;
+    Array.from(reviewNode.querySelector('.rating').children).forEach(child => {
+        if (child.classList.contains('filled')) {
+            review.rating += 1;
+        }
+    });
+
+    review.title = reviewNode.querySelector('.title').textContent.trim();
+    review.description = reviewNode.querySelector('p').textContent.trim();
+
+    let author = {}
+    const authorNode = reviewNode.querySelector('.author');
+    author.avatar = authorNode.querySelector('img').src;
+    author.name = authorNode.querySelector('span').textContent.trim();
+    review.author = author;
+    review.date = authorNode.querySelector('i').textContent.trim().split('/').join('.');
+
+    return review;
+}
+
 function getPageOpengraph() {
     let ogs = {};
     ogTags = document.head.querySelectorAll('meta[property^="og"]');
@@ -14,26 +76,15 @@ function getProductPrice(product) {
     
     priceClone.removeChild(priceClone.children[0]);
     
-    productPrice.price = priceClone.textContent.replace(/[^0-9]/g, '');
-    productPrice.oldPrice = priceElement.children[0].textContent.trim().replace(/[^0-9]/g, '');
+    productPrice.price = getPriceValue(priceClone.textContent);
+    productPrice.oldPrice = getPriceValue(priceElement.children[0].textContent.trim());
     productPrice.discount = productPrice.oldPrice - productPrice.price;
+    productPrice.currency = getPriceCurrency(priceElement.children[0].textContent.trim());
+
     let discountPercent = productPrice.discount / productPrice.oldPrice * 100;
     productPrice.discountPercent = `${discountPercent.toFixed(2)}%`;
 
-    let currencySign = priceElement.children[0].textContent.trim().replace(/[0-9]/g, '');
-    switch (currencySign) {
-        case '₽':
-            productPrice.currency = 'RUB';
-            break;
-        case '$':
-            productPrice.currency = 'USD';
-            break;
-        case '€':
-            productPrice.currency = 'EUR';
-            break;
-    }
-
-    return productPrice
+    return productPrice;
 }
 
 function getProductTags(product) {
@@ -48,7 +99,7 @@ function getProductTags(product) {
         } else if (tag.classList.contains('red')) {
             tags.discount.push(tag.textContent.trim());
         } else if (tag.classList.contains('blue')) {
-            tags.label.push(tag.textContent.trim())
+            tags.label.push(tag.textContent.trim());
         }
     });
 
@@ -70,16 +121,6 @@ function getProductDescription(product) {
         child.removeAttribute('class');
     });
     return descClone.innerHTML.trim();
-}
-
-function getImageInfo(image) {
-    let info = {};
-    
-    info.preview = image.src;
-    info.full = image.dataset['src'];
-    info.alt = image.alt;
-    
-    return info;
 }
 
 function getProductImages(product) {
@@ -126,7 +167,7 @@ function collectProductInfo() {
     product.oldPrice = +priceInfo.oldPrice;
     product.discount = priceInfo.discount;
     product.discountPercent = priceInfo.discountPercent;
-    product.currency = priceInfo.currency
+    product.currency = priceInfo.currency;
     product.tags = getProductTags(productNode);
     product.properties = getProductProperties(productNode);
     product.description = getProductDescription(productNode);
@@ -135,12 +176,38 @@ function collectProductInfo() {
     return product;
 }
 
+function collectSuggestedItems() {
+    let suggested = []
+    
+    let suggestedItemsNode = document.querySelector('.suggested');
+    let itemNodes = suggestedItemsNode.querySelector('.items').children;
+    
+    Array.from(itemNodes).forEach(item => {
+        suggested.push(getSuggestedItemInfo(item));
+
+    });
+    
+    return suggested;
+}
+
+function collectReviews() {
+    let reviews = [];
+    
+    const reviewsSection = document.querySelector('.reviews');
+    const reviewsNodes = reviewsSection.querySelector('.items').children;
+    Array.from(reviewsNodes).forEach(review => {
+        reviews.push(getReviewContent(review));
+    });
+
+    return reviews;
+}
+
 function parsePage() {
     return {
         meta: collectPageMeta(),
         product: collectProductInfo(),
-        suggested: [],
-        reviews: []
+        suggested: collectSuggestedItems(),
+        reviews: collectReviews()
     };
 }
 
